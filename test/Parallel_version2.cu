@@ -185,21 +185,21 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key)
     bitmapImage[index] = bitmapImage[index] ^ sub_key[block_y * 32 + block_x];
 }
 
-__device__ int col_calculator(int key, int size)
+__device__ int col_calculator(int key, int col)
 {
-    int N = sqrtf(size);
+    int N = col;
     return key % N;
 }
 
-__device__ int row_calculator(int key, int size)
+__device__ int row_calculator(int key, int row)
 {   
-    int N = sqrtf(size);
+    int N = row;
     return key / N + 1;
 }
 
 __device__ int de_key_generator(int col, int row, int size)
 {   
-    return row * sqrtf(size) + col + 1; 
+    return row * size + col + 1; 
 }
 
 __global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bitmapImage1, int *en_key, int *de_key)
@@ -214,15 +214,15 @@ __global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bit
     int block_idx_y = idx_y / 32;   //0-15
 
     int key = en_key[block_y * 32 + block_x];
-    int new_col = col_calculator(key, 1024);
-    int new_row = row_calculator(key, 1024);
+    int new_col = col_calculator(key, 32);
+    int new_row = row_calculator(key, 32);
     if(new_col == 0)
     {
         new_col = 32;
         new_row -= 1;
     }
 
-    de_key[(new_row - 1) * 32 + (new_col - 1)] = de_key_generator(block_x, block_y, 1024);
+    de_key[(new_row - 1) * 32 + (new_col - 1)] = de_key_generator(block_x, block_y, 32);
     bitmapImage1[((block_idx_y * 32 + new_row - 1) * 512 + block_idx_x * 32 + new_col - 1) * 3 + (index % 3)] = bitmapImage[index];
 }
 
@@ -239,15 +239,15 @@ __global__ void block_permutation(unsigned char *bitmapImage1, unsigned char *bi
     int block_idx_y = idx_y / 32;
 
     int key = en_key[block_idx_y * 16 + block_idx_x];
-    int new_col_block = col_calculator(key, 256);
-    int new_row_block = row_calculator(key, 256);
+    int new_col_block = col_calculator(key, 16);
+    int new_row_block = row_calculator(key, 16);
     if(new_col_block == 0)
     {
         new_col_block = 16;
         new_row_block -= 1;
     }
 
-    de_key[(new_row_block - 1) * 16 + (new_col_block - 1)] = de_key_generator(block_idx_x, block_idx_y, 256);
+    de_key[(new_row_block - 1) * 16 + (new_col_block - 1)] = de_key_generator(block_idx_x, block_idx_y, 16);
     bitmapImage2[(((new_row_block-1) * 32) * 512 + (new_col_block-1) * 32 + (block_y * 512 + block_x)) * 3 + (index % 3)] = bitmapImage1[index];
 }
 
