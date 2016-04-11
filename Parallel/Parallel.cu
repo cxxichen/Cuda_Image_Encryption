@@ -4,7 +4,7 @@
 #include "bitmap.h"
 
 #define BLOCKSIZE 16 
-#define PIX_KEY_WIDTH 1
+#define PIX_KEY_WIDTH 2
 #define PIX_KEY_HEIGHT BLOCKSIZE/PIX_KEY_WIDTH
 // #define PIX_KEY_HEIGHT 32
 __device__ int col_calculator(int, int);
