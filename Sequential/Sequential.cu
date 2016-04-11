@@ -174,20 +174,20 @@ int main(int argc, char *argv[])
     start = clock();
     substitution(input_image, bitmapInfoHeader.biSizeImage, substitution_key);
     stop = clock();
-    en_sub = (stop - start) / 1000;
+    en_sub = ((double)(stop - start) / 1000);
     printf("Encryption substitution Time: %fms\n", en_sub);
 
 
     start = clock();
     pixel_permutation(input_image, pixel_permutation_image, bitmapInfoHeader.biSizeImage, pix_perm_key, pix_perm_key_de);
     stop = clock();
-    en_pix_per = (stop - start) / 1000;
+    en_pix_per = ((double)(stop - start) / 1000);
     printf("Encryption pixel permutation Time: %fms\n", en_pix_per);
 
     start = clock();
     block_permutation(pixel_permutation_image, block_permutation_iamge, bitmapInfoHeader.biSizeImage, block_perm_key, block_perm_key_de);
     stop = clock();
-    en_block_per = (stop - start) / 1000;
+    en_block_per = ((double)(stop - start) / 1000);
     printf("Encryption block permutation Time: %fms\n", en_block_per);
     printf("Encryption time: %fms\n", en_sub + en_pix_per + en_block_per);
     ReloadBitmapFile(argv[2], block_permutation_iamge, &bitmapFileHeader, &bitmapInfoHeader);
@@ -200,19 +200,19 @@ int main(int argc, char *argv[])
     start = clock();
     block_permutation(output_image, out_block_permutation_iamge, bitmapInfoHeader.biSizeImage, block_perm_key_de, block_perm_key);
     stop = clock();
-    de_block_per = (stop - start) / 1000;
+    de_block_per = ((double)(stop - start) / 1000);
     printf("Decryption block permutation Time: %fms\n", de_block_per);
 
     start = clock();
     pixel_permutation(out_block_permutation_iamge, out_pixel_permutation_image, bitmapInfoHeader.biSizeImage, pix_perm_key_de, pix_perm_key);
     stop = clock();
-    de_pix_per = (stop - start) / 1000;
+    de_pix_per = ((double)(stop - start) / 1000);
     printf("Decryption pixel permutation Time: %fms\n", de_pix_per);
 
     start = clock();
     substitution(out_pixel_permutation_image, bitmapInfoHeader.biSizeImage, substitution_key);
     stop = clock();
-    de_sub = (stop - start) / 1000;
+    de_sub = ((double)(stop - start) / 1000);
     printf("Decryption subtitution Time: %fms\n", de_sub);
     printf("Decryption time: %fms\n", de_sub + de_pix_per + de_block_per);
     ReloadBitmapFile(argv[3], out_pixel_permutation_image, &bitmapFileHeader1, &bitmapInfoHeader1);
