@@ -214,6 +214,7 @@ int main(int argc, char *argv[])
     dim3 gridDim(imagesize/BLOCKSIZE , 1, 1);
     dim3 blockDim(BLOCKSIZE, 1, 1);
 
+
     cudaEvent_t start;
     cudaEventCreate(&start);
     cudaEvent_t end;
@@ -221,6 +222,7 @@ int main(int argc, char *argv[])
     float en_substitution_time, en_pixel_permutation_time, en_block_permutation_time;
     float de_substitution_time, de_pixel_permutation_time, de_block_permutation_time;
 
+    printf("start.");
     cudaEventRecord(start, 0);
     substitution<<<gridDim, blockDim>>>(d_input_image, d_substitution_key, imagewidth);
     cudaEventRecord(end, 0);
@@ -285,6 +287,7 @@ int main(int argc, char *argv[])
 
     cudaMemcpy(out_pixel_permutation_image, d_out_pixel_permutation_image, imagesize*3, cudaMemcpyDeviceToHost);
     ReloadBitmapFile(argv[3], out_pixel_permutation_image, &bitmapFileHeader1, &bitmapInfoHeader1);
+    printf("finish!");
 
     cudaFree(d_input_image);
     cudaFree(d_pixel_permutation_image);
