@@ -105,22 +105,24 @@ __device__ int de_key_generator(int col, int row, int width)
 
 __global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bitmapImage1, int *en_key, int *de_key,int imagewidth)
 {
-    int block_x = threadIdx.x % PIX_KEY_WIDTH;
-    int block_y = threadIdx.x / PIX_KEY_WIDTH;
-    
-    int block_idx_x = blockIdx.x % (imagewidth/PIX_KEY_WIDTH);   
-    int block_idx_y = blockIdx.x / (imagewidth/PIX_KEY_WIDTH);   
-    
-    int idx_pixel = (block_idx_y * PIX_KEY_HEIGHT + block_y) * imagewidth + (block_idx_x * PIX_KEY_WIDTH + block_x);
+    int width = imagewidth * 3;
+    //pixel position in block
+    int block_x = threadIdx.x % PIX_KEY_WIDTH;  //0-31
+    int block_y = threadIdx.x / PIX_KEY_WIDTH;  
+    //block position in image
+    int block_idx_x = blockIdx.x % (imagewidth / PIX_KEY_WIDTH);    
+    int block_idx_y = blockIdx.x / (imagewidth / PIX_KEY_WIDTH);   
+    int block_pos = block_idx_y * PIX_KEY_HEIGHT * width + block_idx_x * (PIX_KEY_WIDTH * 3);
 
     __shared__ unsigned char s_data[BLOCKSIZE*3];
     __shared__ unsigned char s_data_out[BLOCKSIZE*3];
     __shared__ int s_data_en_key[BLOCKSIZE];
     __shared__ int s_data_de_key[BLOCKSIZE];
 
+    int pos = block_pos + block_y * width + block_x;
     for(int i = 0; i < 3; i++)
     {
-    	s_data[threadIdx.x * 3 + i] = bitmapImage[idx_pixel * 3 + i];
+        s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH] = bitmapImage[pos + i * PIX_KEY_WIDTH];
     }
     s_data_en_key[threadIdx.x] = en_key[threadIdx.x];
     __syncthreads();
@@ -137,13 +139,14 @@ __global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bit
 
     for(int i = 0; i < 3; i++)
     {
-    	s_data_out[((new_row - 1) * PIX_KEY_WIDTH + (new_col - 1)) * 3 + i] = s_data[threadIdx.x * 3 + i];
+    	s_data_out[((new_row - 1) * (PIX_KEY_WIDTH*3) + (new_col - 1)) + i * PIX_KEY_WIDTH] 
+            = s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH];
     }
     __syncthreads();
 
     for(int i = 0; i < 3; i++)
     {
-    	bitmapImage1[idx_pixel * 3 + i] = s_data_out[threadIdx.x * 3 + i];
+    	bitmapImage1[pos + i * PIX_KEY_WIDTH] = s_data_out[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH];
     }
     de_key[threadIdx.x] = s_data_de_key[threadIdx.x];
 }
