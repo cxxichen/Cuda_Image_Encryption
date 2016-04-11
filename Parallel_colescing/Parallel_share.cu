@@ -68,13 +68,10 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     __shared__ unsigned char s_data[BLOCKSIZE * 3];
     __shared__ int s_key[BLOCKSIZE];
  
-    int pos = block_y * width + block_x;
+    int pos = block_pos + block_y * width + block_x;
     for(int i = 0; i < 3; i++)
     {   
-        int sm_pixel_idx = pos + i * PIX_KEY_WIDTH;
-        int pixel_idx = block_pos + sm_pixel_idx;
-
-        s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH] = bitmapImage[pixel_idx];
+        s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH] = bitmapImage[pos + i * PIX_KEY_WIDTH];
     }
     s_key[threadIdx.x] = sub_key[threadIdx.x];
     __syncthreads();
@@ -85,9 +82,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     }
     for(int i = 0; i < 3; i++)
     {
-        int sm_pixel_idx = pos + i * PIX_KEY_WIDTH;
-        int pixel_idx = block_pos + sm_pixel_idx;
-        bitmapImage[pixel_idx] = s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH];
+        bitmapImage[pos + i * PIX_KEY_WIDTH] = s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH];
     }
 }
 
