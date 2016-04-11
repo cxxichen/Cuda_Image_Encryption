@@ -4,7 +4,7 @@
 #include "bitmap.h"
 
 #define BLOCKSIZE 16 
-#define PIX_KEY_WIDTH 2
+#define PIX_KEY_WIDTH 4
 #define PIX_KEY_HEIGHT BLOCKSIZE/PIX_KEY_WIDTH
 // #define PIX_KEY_HEIGHT 32
 __device__ int col_calculator(int, int);
@@ -226,22 +226,22 @@ int main(int argc, char *argv[])
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&en_substitution_time, start, end);
-    printf("Encryption substitution Time: %fms\n", en_substitution_time);
+    printf("Encryption substitution Time: %f ms\n", en_substitution_time);
 
     cudaEventRecord(start, 0);
     pixel_permutation<<<gridDim, blockDim>>>(d_input_image, d_pixel_permutation_image, d_pix_per_key, d_pix_per_key_de, imagewidth);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&en_pixel_permutation_time, start, end);
-    printf("Encryption pixel permutation Time: %fms\n", en_pixel_permutation_time);
+    printf("Encryption pixel permutation Time: %f ms\n", en_pixel_permutation_time);
 
     cudaEventRecord(start, 0);
     block_permutation<<<gridDim, blockDim>>>(d_pixel_permutation_image, d_block_permutation_iamge, d_block_per_key, d_block_per_key_de,imagewidth,imageheight);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&en_block_permutation_time, start, end);
-    printf("Encryption block permutation Time: %fms\n", en_block_permutation_time);
-    printf("Encryption time: %fms\n", en_substitution_time + en_pixel_permutation_time + en_block_permutation_time);
+    printf("Encryption block permutation Time: %f ms\n", en_block_permutation_time);
+    printf("Encryption time: %f ms\n", en_substitution_time + en_pixel_permutation_time + en_block_permutation_time);
 
     cudaMemcpy(block_permutation_iamge, d_block_permutation_iamge, imagesize*3, cudaMemcpyDeviceToHost);
     ReloadBitmapFile(argv[2], block_permutation_iamge, &bitmapFileHeader, &bitmapInfoHeader);
@@ -266,22 +266,22 @@ int main(int argc, char *argv[])
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&de_block_permutation_time, start, end);
-    printf("Decryption block permutation Time: %fms\n", de_block_permutation_time);
+    printf("Decryption block permutation Time: %f ms\n", de_block_permutation_time);
 
     cudaEventRecord(start, 0);
     pixel_permutation<<<gridDim, blockDim>>>(d_out_block_permutation_iamge, d_out_pixel_permutation_image, d_pix_per_key_de, d_pix_per_key,imagewidth);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&de_pixel_permutation_time, start, end);
-    printf("Decryption pixel permutation Time: %fms\n", de_pixel_permutation_time);
+    printf("Decryption pixel permutation Time: %f ms\n", de_pixel_permutation_time);
 
     cudaEventRecord(start, 0);
     substitution<<<gridDim, blockDim>>>(d_out_pixel_permutation_image, d_substitution_key,imagewidth);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&de_substitution_time, start, end);
-    printf("Decryption substitution Time: %fms\n", de_substitution_time);
-    printf("Decryption time: %fms\n", de_substitution_time + de_pixel_permutation_time + de_block_permutation_time);
+    printf("Decryption substitution Time: %f ms\n", de_substitution_time);
+    printf("Decryption time: %f ms\n", de_substitution_time + de_pixel_permutation_time + de_block_permutation_time);
 
     cudaMemcpy(out_pixel_permutation_image, d_out_pixel_permutation_image, imagesize*3, cudaMemcpyDeviceToHost);
     ReloadBitmapFile(argv[3], out_pixel_permutation_image, &bitmapFileHeader1, &bitmapInfoHeader1);
