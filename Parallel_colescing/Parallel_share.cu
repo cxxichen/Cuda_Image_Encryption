@@ -56,21 +56,22 @@ void encryption_permutation_key_generator(int *per_key, int size)
 
 __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagewidth)
 {
+    int width = imagewidth * 3;
     //pixel position in block
     int block_x = threadIdx.x % PIX_KEY_WIDTH;  //0-31
-    int block_y = threadIdx.x / PIX_KEY_WIDTH;  //0-31
-    
+    int block_y = threadIdx.x / PIX_KEY_WIDTH;  
     //block position in image
     int block_idx_x = blockIdx.x % (imagewidth / PIX_KEY_WIDTH);    
     int block_idx_y = blockIdx.x / (imagewidth / PIX_KEY_WIDTH);   
-    int block_pos = block_idx_y * PIX_KEY_HEIGHT * (imagewidth*3) + block_idx_x * (PIX_KEY_WIDTH * 3);
+    int block_pos = block_idx_y * PIX_KEY_HEIGHT * width + block_idx_x * (PIX_KEY_WIDTH * 3);
 
     __shared__ unsigned char s_data[BLOCKSIZE * 3];
     __shared__ int s_key[BLOCKSIZE];
  
+    int pos = block_y * width + block_x;
     for(int i = 0; i < 3; i++)
     {   
-        int sm_pixel_idx = block_y * (imagewidth*3) + block_x + i * PIX_KEY_WIDTH;
+        int sm_pixel_idx = pos + i * PIX_KEY_WIDTH;
         int pixel_idx = block_pos + sm_pixel_idx;
 
         s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH] = bitmapImage[pixel_idx];
@@ -84,7 +85,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     }
     for(int i = 0; i < 3; i++)
     {
-        int sm_pixel_idx = block_y * (imagewidth*3) + block_x + i * PIX_KEY_WIDTH;
+        int sm_pixel_idx = pos + i * PIX_KEY_WIDTH;
         int pixel_idx = block_pos + sm_pixel_idx;
         bitmapImage[pixel_idx] = s_data[block_y * (PIX_KEY_WIDTH * 3) + block_x + i * PIX_KEY_WIDTH];
     }
