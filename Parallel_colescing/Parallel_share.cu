@@ -63,7 +63,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     //block position in image
     int block_idx_x = blockIdx.x % (imagewidth / PIX_KEY_WIDTH);    
     int block_idx_y = blockIdx.x / (imagewidth / PIX_KEY_WIDTH);   
-    int block_pos = block_idx_y * PIX_KEY_HEIGHT * imagewidth + block_idx_x * PIX_KEY_WIDTH;
+    int block_pos = block_idx_y * PIX_KEY_HEIGHT * imagewidth*3 + block_idx_x * PIX_KEY_WIDTH;
 
     // pixel positon in image
     // int idx_pixel = (block_idx_y * PIX_KEY_HEIGHT + block_y) * imagewidth + (block_idx_x * PIX_KEY_WIDTH + block_x);    
@@ -73,7 +73,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
  
     for(int i = 0; i < 3; i++)
     {   
-        int sm_pixel_idx = block_y * imagewidth + block_x + i * PIX_KEY_WIDTH;
+        int sm_pixel_idx = block_y * imagewidth*3 + block_x + i * PIX_KEY_WIDTH;
         int pixel_idx = block_pos + sm_pixel_idx;
 
         s_data[block_y * PIX_KEY_WIDTH * 3 + block_x + i * PIX_KEY_WIDTH] = bitmapImage[pixel_idx];
@@ -87,7 +87,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     }
     for(int i = 0; i < 3; i++)
     {
-        int sm_pixel_idx = block_y * imagewidth + block_x + i * PIX_KEY_WIDTH;
+        int sm_pixel_idx = block_y * imagewidth*3 + block_x + i * PIX_KEY_WIDTH;
         int pixel_idx = block_pos + sm_pixel_idx;
         bitmapImage[pixel_idx] = s_data[block_y * PIX_KEY_WIDTH * 3 + block_x + i * PIX_KEY_WIDTH];
     }
