@@ -56,7 +56,7 @@ void encryption_permutation_key_generator(int *per_key, int size)
 
 __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagewidth)
 {
-3    //pixel position in block
+    //pixel position in block
     int block_x = threadIdx.x % PIX_KEY_WIDTH;  //0-31
     int block_y = threadIdx.x / PIX_KEY_WIDTH;  //0-31
     
