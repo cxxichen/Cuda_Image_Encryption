@@ -3,10 +3,11 @@
 #include <time.h>
 #include "bitmap.h"
 
-#define BLOCKSIZE 1024 
-#define PIX_KEY_WIDTH 64 
+#define BLOCKSIZE 1024
+#define PIX_KEY_WIDTH 32
 #define PIX_KEY_HEIGHT BLOCKSIZE/PIX_KEY_WIDTH
 // #define PIX_KEY_HEIGHT 32
+
 __device__ int col_calculator(int, int);
 __device__ int row_calculator(int, int);
 __device__ int de_key_generator(int, int, int);
@@ -73,9 +74,9 @@ __device__ int col_calculator(int key, int col)
     return key % N;
 }
 
-__device__ int row_calculator(int key, int row)
+__device__ int row_calculator(int key, int col)
 {   
-    int N = row;
+    int N = col;
     return key / N + 1;
 }
 
@@ -178,14 +179,12 @@ int main(int argc, char *argv[])
     int *d_substitution_key;
 
     int pix_perm_key[BLOCKSIZE];
-//    int pix_perm_key_de[BLOCKSIZE];
     int *d_pix_per_key;
     int *d_pix_per_key_de;
     encryption_permutation_key_generator(pix_perm_key, BLOCKSIZE);
     randomize(pix_perm_key, BLOCKSIZE);
     
     int block_perm_key[imagesize/BLOCKSIZE];
-//    int block_perm_key_de[imagesize/BLOCKSIZE];
     int *d_block_per_key;
     int *d_block_per_key_de;
     encryption_permutation_key_generator(block_perm_key,imagesize/BLOCKSIZE);
