@@ -1,12 +1,16 @@
+/*
+ * Naive Parallel version using CUDA.
+ * The performance gain is about 250 times.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include "bitmap.h"
 
+//define blocksize
 #define BLOCKSIZE 1024
 #define PIX_KEY_WIDTH 32
 #define PIX_KEY_HEIGHT BLOCKSIZE/PIX_KEY_WIDTH
-// #define PIX_KEY_HEIGHT 32
 
 __device__ int col_calculator(int, int);
 __device__ int row_calculator(int, int);
@@ -21,20 +25,15 @@ void swap (int *a, int *b)
 
 void randomize ( int arr[], int n )
 {
-    // Use a different seed value so that we don't get same
-    // result each time we run this program
-    srand ( time(NULL) );
- 
-    // Start from the last element and swap one by one. We don't
-    // need to run for the first element that's why i > 0
-    for (int i = n-1; i > 0; i--)
+	//randomly switch add[i] with another element with random index
+    srand(time(NULL));
+    for (int i = n -1; i > 0; i--)
     {
-        // Pick a random index from 0 to i
         int j = rand() % (i+1);
-        // Swap arr[i] with the element at random index
         swap(&arr[i], &arr[j]);
     }
 }
+
 
 void substitution_key_generator(int *sub_key)
 {
@@ -52,7 +51,8 @@ void encryption_permutation_key_generator(int *per_key, int size)
     }
 }
 
-__global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagewidth)
+//Step 1: Pixel substitution kernel
+__global__ void substitution(unsigned char *inputImage, int *sub_key,int imagewidth)
 {
     int block_x = threadIdx.x % PIX_KEY_WIDTH;	// col position in block
     int block_y = threadIdx.x / PIX_KEY_WIDTH;	// row position in block
@@ -64,7 +64,7 @@ __global__ void substitution(unsigned char *bitmapImage, int *sub_key,int imagew
     
     for(int i = 0; i < 3; i++)
     {
-        bitmapImage[3 * idx_pixel + i] = bitmapImage[3 * idx_pixel + i] ^ sub_key[threadIdx.x];
+        inputImage[3 * idx_pixel + i] = inputImage[3 * idx_pixel + i] ^ sub_key[threadIdx.x];
     }
 }
 
@@ -85,7 +85,9 @@ __device__ int de_key_generator(int col, int row, int width)
     return row * width + col + 1; 
 }
 
-__global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bitmapImage1, int *en_key, int *de_key,int imagewidth)
+//Step 2: Pixel permutation within one block kernel
+__global__ void pixel_permutation(unsigned char *inputImage, unsigned char *outputImage,
+		int *en_key, int *de_key,int imagewidth)
 {
     int block_x = threadIdx.x % PIX_KEY_WIDTH;	// col position in block
     int block_y = threadIdx.x / PIX_KEY_WIDTH;	// row position in block
@@ -104,15 +106,18 @@ __global__ void pixel_permutation(unsigned char *bitmapImage, unsigned char *bit
         new_row -= 1;
     }
 
-    de_key[(new_row - 1) * PIX_KEY_WIDTH + (new_col - 1)] = de_key_generator(block_x, block_y, PIX_KEY_WIDTH);
+    de_key[(new_row - 1) * PIX_KEY_WIDTH + (new_col - 1)]
+           = de_key_generator(block_x, block_y, PIX_KEY_WIDTH);
     for(int i = 0; i < 3; i++)
     {
-    	 bitmapImage1[((block_idx_y * PIX_KEY_HEIGHT + new_row - 1) * imagewidth + block_idx_x * PIX_KEY_WIDTH + new_col - 1) * 3 + i] = bitmapImage[idx_pixel * 3 + i];
+    	 outputImage[((block_idx_y * PIX_KEY_HEIGHT + new_row - 1) * imagewidth + block_idx_x * PIX_KEY_WIDTH + new_col - 1) * 3 + i]
+    	             = inputImage[idx_pixel * 3 + i];
     }  
 }
 
-
-__global__ void block_permutation(unsigned char *bitmapImage1, unsigned char *bitmapImage2, int *en_key, int *de_key,int imagewidth,int imageheight)
+//Step 3: Block permutation kernel
+__global__ void block_permutation(unsigned char *inputImage, unsigned char *outputImage,
+		int *en_key, int *de_key,int imagewidth,int imageheight)
 {
     int block_x = threadIdx.x % PIX_KEY_WIDTH;	// col position in block
     int block_y = threadIdx.x / PIX_KEY_WIDTH;	// row position in block
@@ -131,23 +136,25 @@ __global__ void block_permutation(unsigned char *bitmapImage1, unsigned char *bi
         new_row_block -= 1;
     }
 
-    de_key[(new_row_block - 1) * (imagewidth / PIX_KEY_WIDTH) + (new_col_block - 1)] = de_key_generator(block_idx_x, block_idx_y, imagewidth / PIX_KEY_WIDTH);
+    de_key[(new_row_block - 1) * (imagewidth / PIX_KEY_WIDTH) + (new_col_block - 1)]
+           = de_key_generator(block_idx_x, block_idx_y, imagewidth / PIX_KEY_WIDTH);
     for(int i = 0; i < 3; i++)
     {
-        bitmapImage2[(((new_row_block-1) * PIX_KEY_HEIGHT) * imagewidth + (new_col_block-1) * PIX_KEY_WIDTH +(block_y * imagewidth+ block_x)) * 3 + i] = bitmapImage1[idx_pixel * 3 + i];
+        outputImage[(((new_row_block-1) * PIX_KEY_HEIGHT) * imagewidth + (new_col_block-1) * PIX_KEY_WIDTH +(block_y * imagewidth+ block_x)) * 3 + i]
+                     = inputImage[idx_pixel * 3 + i];
     }
 }
 
 int main(int argc, char *argv[])
 {
-    BITMAPINFOHEADER bitmapInfoHeader;
-    BITMAPFILEHEADER bitmapFileHeader;
+    INFOHEADER bmpInfoHeader;
+    FILEHEADER bmpFileHeader;
     unsigned char *input_image;
     unsigned char *pixel_permutation_image;
     unsigned char *block_permutation_iamge;
 
-    BITMAPINFOHEADER bitmapInfoHeader1;
-    BITMAPFILEHEADER bitmapFileHeader1;
+    INFOHEADER bmpInfoHeader1;
+    FILEHEADER bmpFileHeader1;
     unsigned char *output_image;
     unsigned char *out_block_permutation_iamge;
     unsigned char *out_pixel_permutation_image;
@@ -159,19 +166,19 @@ int main(int argc, char *argv[])
     unsigned char *d_out_block_permutation_iamge;
     unsigned char *d_out_pixel_permutation_image;
    
-    // Image Encryption
-    input_image = LoadBitmapFile(argv[1],&bitmapInfoHeader, &bitmapFileHeader);
-    pixel_permutation_image = (unsigned char *) malloc(bitmapInfoHeader.biSizeImage * sizeof(char));
-    memset(pixel_permutation_image, 0, bitmapInfoHeader.biSizeImage);
-    block_permutation_iamge = (unsigned char *) malloc(bitmapInfoHeader.biSizeImage * sizeof(char));
-    memset(block_permutation_iamge, 0, bitmapInfoHeader.biSizeImage);
+    //Loading input image and allocate enough memory for processing
+    input_image = LoadImage(argv[1],&bmpInfoHeader, &bmpFileHeader);
+    pixel_permutation_image = (unsigned char *) malloc(bmpInfoHeader.imagesize * sizeof(char));
+    memset(pixel_permutation_image, 0, bmpInfoHeader.imagesize);
+    block_permutation_iamge = (unsigned char *) malloc(bmpInfoHeader.imagesize * sizeof(char));
+    memset(block_permutation_iamge, 0, bmpInfoHeader.imagesize);
 
-    printf("Image size: %d\n", bitmapInfoHeader.biSizeImage);
-    printf("Image widthh: %d\n", bitmapInfoHeader.biWidth);
-    printf("Image height: %d\n", bitmapInfoHeader.biHeight);
-    int imagesize = bitmapInfoHeader.biSizeImage/3;
-    int imagewidth = bitmapInfoHeader.biWidth;
-    int imageheight = bitmapInfoHeader.biHeight;
+    printf("Image size: %d\n", bmpInfoHeader.imagesize);
+    printf("Image widthh: %d\n", bmpInfoHeader.width);
+    printf("Image height: %d\n", bmpInfoHeader.height);
+    int imagesize = bmpInfoHeader.imagesize/3;
+    int imagewidth = bmpInfoHeader.width;
+    int imageheight = bmpInfoHeader.height;
 
     
     int substitution_key[BLOCKSIZE];
@@ -190,6 +197,7 @@ int main(int argc, char *argv[])
     encryption_permutation_key_generator(block_perm_key,imagesize/BLOCKSIZE);
     randomize(block_perm_key, imagesize/BLOCKSIZE);    
     
+    //CUDA malloc and CUDA memcpy
     cudaMalloc((void**)&d_input_image, imagesize*3);
     cudaMalloc((void**)&d_pixel_permutation_image, imagesize*3);
     cudaMalloc((void**)&d_block_permutation_iamge, imagesize*3);
@@ -210,9 +218,9 @@ int main(int argc, char *argv[])
     cudaMemcpy(d_block_per_key, block_perm_key, imagesize/BLOCKSIZE * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemset(d_block_per_key_de, 0,imagesize/BLOCKSIZE * sizeof(int));
 
+    //define the dimension of CUDA grid and block
     dim3 gridDim(imagesize/BLOCKSIZE , 1, 1);
     dim3 blockDim(BLOCKSIZE, 1, 1);
-
 
     cudaEvent_t start;
     cudaEventCreate(&start);
@@ -221,7 +229,7 @@ int main(int argc, char *argv[])
     float en_substitution_time, en_pixel_permutation_time, en_block_permutation_time;
     float de_substitution_time, de_pixel_permutation_time, de_block_permutation_time;
 
-
+    //Image Encryption using three CUDA kernels
     cudaEventRecord(start, 0);
     substitution<<<gridDim, blockDim>>>(d_input_image, d_substitution_key, imagewidth);
     cudaEventRecord(end, 0);
@@ -230,14 +238,16 @@ int main(int argc, char *argv[])
     printf("Encryption substitution Time: %f ms\n", en_substitution_time);
 
     cudaEventRecord(start, 0);
-    pixel_permutation<<<gridDim, blockDim>>>(d_input_image, d_pixel_permutation_image, d_pix_per_key, d_pix_per_key_de, imagewidth);
+    pixel_permutation<<<gridDim, blockDim>>>(d_input_image, d_pixel_permutation_image,
+    		d_pix_per_key, d_pix_per_key_de, imagewidth);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&en_pixel_permutation_time, start, end);
     printf("Encryption pixel permutation Time: %f ms\n", en_pixel_permutation_time);
 
     cudaEventRecord(start, 0);
-    block_permutation<<<gridDim, blockDim>>>(d_pixel_permutation_image, d_block_permutation_iamge, d_block_per_key, d_block_per_key_de,imagewidth,imageheight);
+    block_permutation<<<gridDim, blockDim>>>(d_pixel_permutation_image, d_block_permutation_iamge,
+    		d_block_per_key, d_block_per_key_de,imagewidth,imageheight);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&en_block_permutation_time, start, end);
@@ -245,13 +255,13 @@ int main(int argc, char *argv[])
     printf("Encryption time: %f ms\n", en_substitution_time + en_pixel_permutation_time + en_block_permutation_time);
 
     cudaMemcpy(block_permutation_iamge, d_block_permutation_iamge, imagesize*3, cudaMemcpyDeviceToHost);
-    ReloadBitmapFile(argv[2], block_permutation_iamge, &bitmapFileHeader, &bitmapInfoHeader);
+    SaveImage(argv[2], block_permutation_iamge, &bmpFileHeader, &bmpInfoHeader);
 
-    //load encrypted image to array
-    output_image = LoadBitmapFile(argv[2],&bitmapInfoHeader1, &bitmapFileHeader1);
-    out_block_permutation_iamge = (unsigned char *) malloc(bitmapInfoHeader.biSizeImage * sizeof(char));
+
+    output_image = LoadImage(argv[2],&bmpInfoHeader1, &bmpFileHeader1);
+    out_block_permutation_iamge = (unsigned char *) malloc(bmpInfoHeader.imagesize * sizeof(char));
     memset(out_block_permutation_iamge, 0, imagesize);
-    out_pixel_permutation_image = (unsigned char *) malloc(bitmapInfoHeader.biSizeImage * sizeof(char));
+    out_pixel_permutation_image = (unsigned char *) malloc(bmpInfoHeader.imagesize * sizeof(char));
     memset(out_pixel_permutation_image, 0, imagesize);
 
     cudaMalloc((void**)&d_output_image, imagesize*3);
@@ -262,15 +272,18 @@ int main(int argc, char *argv[])
     cudaMemcpy(d_out_block_permutation_iamge, out_block_permutation_iamge, imagesize*3, cudaMemcpyHostToDevice);
     cudaMemcpy(d_out_pixel_permutation_image, out_pixel_permutation_image, imagesize*3, cudaMemcpyHostToDevice);
 
+    //Image Decryption using three CUDA kernels
     cudaEventRecord(start, 0);
-    block_permutation<<<gridDim, blockDim>>>(d_output_image, d_out_block_permutation_iamge, d_block_per_key_de, d_block_per_key,imagewidth,imageheight);
+    block_permutation<<<gridDim, blockDim>>>(d_output_image, d_out_block_permutation_iamge,
+    		d_block_per_key_de, d_block_per_key,imagewidth,imageheight);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&de_block_permutation_time, start, end);
     printf("Decryption block permutation Time: %f ms\n", de_block_permutation_time);
 
     cudaEventRecord(start, 0);
-    pixel_permutation<<<gridDim, blockDim>>>(d_out_block_permutation_iamge, d_out_pixel_permutation_image, d_pix_per_key_de, d_pix_per_key,imagewidth);
+    pixel_permutation<<<gridDim, blockDim>>>(d_out_block_permutation_iamge, d_out_pixel_permutation_image,
+    		d_pix_per_key_de, d_pix_per_key,imagewidth);
     cudaEventRecord(end, 0);
     cudaEventSynchronize(end);
     cudaEventElapsedTime(&de_pixel_permutation_time, start, end);
@@ -285,9 +298,9 @@ int main(int argc, char *argv[])
     printf("Decryption time: %f ms\n", de_substitution_time + de_pixel_permutation_time + de_block_permutation_time);
 
     cudaMemcpy(out_pixel_permutation_image, d_out_pixel_permutation_image, imagesize*3, cudaMemcpyDeviceToHost);
-    ReloadBitmapFile(argv[3], out_pixel_permutation_image, &bitmapFileHeader1, &bitmapInfoHeader1);
+    SaveImage(argv[3], out_pixel_permutation_image, &bmpFileHeader1, &bmpInfoHeader1);
 
-
+    //Memory free
     cudaFree(d_input_image);
     cudaFree(d_pixel_permutation_image);
     cudaFree(d_block_permutation_iamge);

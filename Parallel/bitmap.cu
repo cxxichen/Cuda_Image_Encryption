@@ -2,81 +2,73 @@
 #include <stdlib.h>
 #include "bitmap.h"
 
-unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader, BITMAPFILEHEADER *bitmapFileHeader)
+unsigned char *LoadImage(char *filename, INFOHEADER *bitmapInfoHeader, FILEHEADER *FileHeader)
 {
-    FILE *filePtr; //our file pointer
-    unsigned char *bitmapImage;  //store image data
+    FILE *fp;
+    unsigned char *inputImage;
 
-    //open filename in read binary mode
-    filePtr = fopen(filename,"rb");
-    if (filePtr == NULL)
-        return NULL;
-
-    //read the bitmap file header
-    fread(bitmapFileHeader, sizeof(BITMAPFILEHEADER),1,filePtr);
-
-    
-    //verify that this is a bmp file by check bitmap id
-    if (bitmapFileHeader->bfType !=0x4D42)
+    //read the input image
+    fp = fopen(filename,"rb");
+    if (fp == NULL)
     {
-        fclose(filePtr);
+        printf("\nERROR: Cannot open file %s", filename);
+        return NULL;
+    }
+
+    //read the file header
+    fread(FileHeader, sizeof(FILEHEADER),1,fp);
+
+    //verify that this is a bmp file by check bitmap id
+    if (FileHeader->type !=0x4D42)
+    {
+    	printf("The image is not a bmp file");
+        fclose(fp);
         return NULL;
     }
     
-    //read the bitmap info header
-    fread(bitmapInfoHeader, sizeof(BITMAPINFOHEADER),1,filePtr); // small edit. forgot to add the closing bracket at sizeof
+    //read the bmp info header
+    fread(bitmapInfoHeader, sizeof(INFOHEADER),1,fp);
 
-    //move file point to the begging of bitmap data
-    fseek(filePtr, bitmapFileHeader->bOffBits, SEEK_SET);
 
-    //allocate enough memory for the bitmap image data
-    bitmapImage = (unsigned char*)malloc(bitmapInfoHeader->biSizeImage);
+    fseek(fp, FileHeader->offset, SEEK_SET);
+    //allocate enough memory for the input data
+    inputImage = (unsigned char*)malloc(bitmapInfoHeader->imagesize);
 
     //verify memory allocation
-    if (!bitmapImage)
+    if (!inputImage)
     {
-        free(bitmapImage);
-        fclose(filePtr);
+        free(inputImage);
+        fclose(fp);
         return NULL;
     }
 
     //read in the bitmap image data
-    fread(bitmapImage,1,bitmapInfoHeader->biSizeImage,filePtr);
+    fread(inputImage,1,bitmapInfoHeader->imagesize,fp);
 
-    //make sure bitmap image data was read
-    if (bitmapImage == NULL)
+    if (inputImage == NULL)
     {
-        fclose(filePtr);
+    	printf("Failed to load the input image");
+        fclose(fp);
         return NULL;
     }
 
-    fclose(filePtr);
-    return bitmapImage;
+    fclose(fp);
+    return inputImage;
 }
 
-void ReloadBitmapFile(char *filename, unsigned char *bitmapImage, BITMAPFILEHEADER *bitmapFileHeader, BITMAPINFOHEADER *bitmapInfoHeader)
+void SaveImage(char *filename, unsigned char *outImage, FILEHEADER *FileHeader, INFOHEADER *bitmapInfoHeader)
 {
-    FILE *filePtr; //our file pointer
-
-    //open filename in write binary mode
-    filePtr = fopen(filename,"wb");
-    if (filePtr == NULL)
+    FILE *fp;
+    fp = fopen(filename,"wb");
+    if (fp == NULL)
     {
         printf("\nERROR: Cannot open file %s", filename);
         exit(1);
     }
         
-
-    //write the bitmap file header
-    fwrite(bitmapFileHeader, sizeof(BITMAPFILEHEADER),1,filePtr);
-
-    //write the bitmap info header
-    fwrite(bitmapInfoHeader, sizeof(BITMAPINFOHEADER),1,filePtr); // small edit. forgot to add the closing bracket at sizeof
-
-    //write in the bitmap image data
-    fwrite(bitmapImage,bitmapInfoHeader->biSizeImage,1,filePtr);
-
-    //close file
-    fclose(filePtr);
+    fwrite(FileHeader, sizeof(FILEHEADER),1,fp);
+    fwrite(bitmapInfoHeader, sizeof(INFOHEADER),1,fp);
+    fwrite(outImage,bitmapInfoHeader->imagesize,1,fp);
+    fclose(fp);
 }
 

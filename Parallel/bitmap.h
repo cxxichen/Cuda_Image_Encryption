@@ -1,39 +1,39 @@
+/***
+	bmp fie header
+***/
+
 #ifndef _BITMAP_H_
 #define _BITMAP_H_
 
-typedef short WORD;
-typedef int DWORD;
-typedef int LONG;
-
 #pragma pack(push, 1)
 typedef struct 
 {
-    WORD bfType;  //specifies the file type
-    DWORD bfSize;  //specifies the size in bytes of the bitmap file
-    WORD bfReserved1;  //reserved; must be 0
-    WORD bfReserved2;  //reserved; must be 0
-    DWORD bOffBits;  //species the offset in bytes from the bitmapfileheader to the bitmap bits
-} BITMAPFILEHEADER;
+    unsigned short int type;
+    unsigned int size;  //File size in bytes
+    unsigned short int reserved1;
+    unsigned short int reserved2;
+    unsigned int offset;  //offset to image data
+} FILEHEADER;
 #pragma pack(pop)
 
 #pragma pack(push, 1)
 typedef struct 
 {
-    DWORD biSize;  //specifies the number of bytes required by the struct
-    LONG biWidth;  //specifies width in pixels
-    LONG biHeight;  //species height in pixels
-    WORD biPlanes; //specifies the number of color planes, must be 1
-    WORD biBitCount; //specifies the number of bit per pixel
-    DWORD biCompression;//spcifies the type of compression
-    DWORD biSizeImage;  //size of image in bytes
-    LONG biXPelsPerMeter;  //number of pixels per meter in x axis
-    LONG biYPelsPerMeter;  //number of pixels per meter in y axis
-    DWORD biClrUsed;  //number of colors used by th ebitmap
-    DWORD biClrImportant;  //number of colors that are important
-} BITMAPINFOHEADER;
+    unsigned int size;  //Header size in bytes
+    int width;  //Width of image
+    int height;  //Height of image
+    unsigned short int planes; //numbers of colours per plane
+    unsigned short int bits; //number of bits per pixel
+    unsigned int compression;//Compression type
+    unsigned int imagesize;  //Image size in bytes
+    int xresolution;  //Pixels per meter in x axis
+    int yresolution;  //Pixels per meter in y axis
+    unsigned int ncolours;  //Number of colors
+    unsigned int importantcolours;  //Important colours
+} INFOHEADER;
 #pragma pack(pop)
 
-extern unsigned char *LoadBitmapFile(char *filename, BITMAPINFOHEADER *bitmapInfoHeader, BITMAPFILEHEADER *bitmapFileHeader);
-extern void ReloadBitmapFile(char *filename, unsigned char *bitmapImage, BITMAPFILEHEADER *bitmapFileHeader, BITMAPINFOHEADER *bitmapInfoHeader);
+extern unsigned char *LoadImage(char *filename, INFOHEADER *InfoHeader, FILEHEADER *FileHeader);
+extern void SaveImage(char *filename, unsigned char *outImage, FILEHEADER *FileHeader, INFOHEADER *InfoHeader);
 
 #endif
